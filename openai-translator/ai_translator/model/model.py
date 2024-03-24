@@ -5,7 +5,14 @@ class Model:
         return f"翻译为{target_language}：{text}"
 
     def make_table_prompt(self, table: str, target_language: str) -> str:
-        return f"翻译为{target_language}，保持间距（空格，分隔符），以表格形式返回：\n{table}"
+        """
+        生成一個翻譯請求提示，要求將表格數據翻譯成指定的目標語言。
+
+        :param table: 表格數據，以字符串形式提供。
+        :param target_language: 目標語言。
+        :return: 格式化的翻譯請求提示。
+        """
+        return f"Please translate to {target_language}, Contains titles and returns in tabular form, :\n{table}"
 
     def translate_prompt(self, content, target_language: str) -> str:
         if content.content_type == ContentType.TEXT:
