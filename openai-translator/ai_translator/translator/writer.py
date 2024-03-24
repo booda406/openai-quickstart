@@ -54,6 +54,10 @@ class Writer:
                     elif content.content_type == ContentType.TABLE:
                         # Add table to the PDF
                         table = content.translation
+
+                        # 将 DataFrame 的列名 (headers) 添加到数据列表的开始
+                        data_with_headers = [table.columns.tolist()] + table.values.tolist()
+
                         table_style = TableStyle([
                             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
                             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
@@ -65,7 +69,7 @@ class Writer:
                             ('FONTNAME', (0, 1), (-1, -1), 'SimSun'),  # 更改表格中的字体为 "SimSun"
                             ('GRID', (0, 0), (-1, -1), 1, colors.black)
                         ])
-                        pdf_table = Table(table.values.tolist())
+                        pdf_table = Table(data_with_headers)
                         pdf_table.setStyle(table_style)
                         story.append(pdf_table)
             # Add a page break after each page except the last one

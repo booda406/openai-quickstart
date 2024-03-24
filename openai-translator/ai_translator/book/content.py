@@ -48,11 +48,23 @@ class TableContent(Content):
 
             LOG.debug(translation)
             # Convert the string to a list of lists
-            table_data = [row.strip().split() for row in translation.strip().split('\n')]
-            LOG.debug(table_data)
-            # Create a DataFrame from the table_data
-            translated_df = pd.DataFrame(table_data[1:], columns=table_data[0])
+            #
+            # 分割原始数据字符串为多个部分，每个部分代表一行数据
+            parts = translation.split('] [')
+
+            # 清理每个部分，移除开头和结尾的方括号
+            parts_cleaned = [part.replace('[', '').replace(']', '') for part in parts]
+
+            # 第一个元素包含列标题
+            columns = parts_cleaned[0].split(', ')
+
+            # 剩余元素包含数据行
+            rows = [row.split(', ') for row in parts_cleaned[1:]]
+
+            # 创建 DataFrame
+            translated_df = pd.DataFrame(rows, columns=columns)
             LOG.debug(translated_df)
+
             self.translation = translated_df
             self.status = status
         except Exception as e:

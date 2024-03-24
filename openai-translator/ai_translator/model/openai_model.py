@@ -3,6 +3,7 @@ import simplejson
 import time
 import os
 import openai
+import re
 
 from model import Model
 from utils import LOG
@@ -17,7 +18,7 @@ class OpenAIModel(Model):
         attempts = 0
         while attempts < 3:
             try:
-                if self.model == "gpt-3.5-turbo":
+                if re.match(r"gpt-3\.5-turbo|gpt-4(\.\d+)?", self.model):
                     response = self.client.chat.completions.create(
                         model=self.model,
                         messages=[
