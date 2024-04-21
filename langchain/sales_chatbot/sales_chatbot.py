@@ -1,31 +1,63 @@
 import gradio as gr
 
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
+from langchain.text_splitter import CharacterTextSplitter
+from sales_bot_manager import SalesBotManager
+from domain_classifier_agent import DomainClassifierAgent
 
-
-def initialize_sales_bot(vector_store_dir: str="real_estates_sale"):
-    db = FAISS.load_local(vector_store_dir, OpenAIEmbeddings())
-    llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+def create_vector_databases(text_files: list, database_dirs: list):
+    """
+    为给定的文本文件创建向量数据库。
     
-    global SALES_BOT    
-    SALES_BOT = RetrievalQA.from_chain_type(llm,
-                                           retriever=db.as_retriever(search_type="similarity_score_threshold",
-                                                                     search_kwargs={"score_threshold": 0.8}))
-    # 返回向量数据库的检索结果
-    SALES_BOT.return_source_documents = True
+    :param text_files: 要处理的文本文件路径列表。
+    :param database_dirs: 每个文本文件相应的数据库存储目录列表。
+    """
+    # 确保OpenAI的Embeddings模型初始化一次
+    embeddings_model = OpenAIEmbeddings()
 
-    return SALES_BOT
+    for text_file, db_dir in zip(text_files, database_dirs):
+        # 读取文本文件内容
+        with open(text_file, 'r', encoding='utf-8') as file:
+            texts = file.read()
 
-def sales_chat(message, history):
+        text_splitter = CharacterTextSplitter(        
+            separator = r'\d+\.',
+            chunk_size = 100,
+            chunk_overlap  = 0,
+            length_function = len,
+            is_separator_regex = True,
+        )
+
+        docs = text_splitter.create_documents([texts])
+
+        db = FAISS.from_documents(docs, OpenAIEmbeddings())
+
+        db.save_local(db_dir)
+
+def sales_chat(message, history, session_id):
     print(f"[message]{message}")
     print(f"[history]{history}")
-    # TODO: 从命令行参数中获取
-    enable_chat = True
 
-    ans = SALES_BOT({"query": message})
+    enable_chat = True
+    
+    classifier_agent = DomainClassifierAgent()
+    domain = classifier_agent.classify(message, history)
+    print(f" domain is {domain}")
+
+    if domain == "router":
+        selected_bot = router_bot
+    elif domain == "real_estate":
+        selected_bot = real_estate_bot
+    elif domain == "tv":
+        selected_bot = tv_bot
+    else:
+        return "对不起，我不确定您的问题属于哪个领域，请尝试提供更多信息。"
+
+    ans = selected_bot({"query": message})
+    
     # 如果检索出结果，或者开了大模型聊天模式
     # 返回 RetrievalQA combine_documents_chain 整合的结果
     if ans["source_documents"] or enable_chat:
@@ -40,7 +72,7 @@ def sales_chat(message, history):
 def launch_gradio():
     demo = gr.ChatInterface(
         fn=sales_chat,
-        title="房产销售",
+        title="销售金牌",
         # retry_btn=None,
         # undo_btn=None,
         chatbot=gr.Chatbot(height=600),
@@ -49,7 +81,21 @@ def launch_gradio():
     demo.launch(share=True, server_name="0.0.0.0")
 
 if __name__ == "__main__":
-    # 初始化房产销售机器人
-    initialize_sales_bot()
+    text_files = ['real_estate_sales_data.txt', 'router_data.txt', 'tv_data.txt']
+    database_dirs = ['real_estate_sales_vector_db', 'router_vector_db', 'tv_vector_db']
+    create_vector_databases(text_files, database_dirs)
+
+    bot_manager = SalesBotManager()
+    
+    # 初始化不同领域的聊天机器人
+    bot_manager.initialize_bot("real_estate", "real_estate_sales_vector_db")
+    bot_manager.initialize_bot("router", "router_vector_db")
+    bot_manager.initialize_bot("tv", "tv_vector_db")
+    
+    # 根据需要获取并使用特定领域的聊天机器人
+    real_estate_bot = bot_manager.get_bot("real_estate")
+    router_bot = bot_manager.get_bot("router")
+    tv_bot = bot_manager.get_bot("tv")
+
     # 启动 Gradio 服务
     launch_gradio()
