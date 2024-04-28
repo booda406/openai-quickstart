@@ -1,5 +1,6 @@
-from langchain.chat_models import ChatOpenAI
+from langchain_community.llms import ChatGLM
 from langchain.chains import LLMChain
+from langchain_core.prompts import PromptTemplate
 
 from langchain.prompts.chat import (
     ChatPromptTemplate,
@@ -17,21 +18,34 @@ class TranslationChain:
             """You are a translation expert, proficient in various languages. \n
             Translates {source_language} to {target_language}."""
         )
-        system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+        # system_message_prompt = SystemMessagePromptTemplate.from_template(template)
 
         # 待翻译文本由 Human 角色输入
         human_template = "{text}"
-        human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
+        # human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
         # 使用 System 和 Human 角色的提示模板构造 ChatPromptTemplate
-        chat_prompt_template = ChatPromptTemplate.from_messages(
-            [system_message_prompt, human_message_prompt]
-        )
+        # chat_prompt_template = ChatPromptTemplate.from_messages(
+        #     [system_message_prompt, human_message_prompt]
+        # )
+
+        prompt = PromptTemplate.from_template(template + human_template)
+
 
         # 为了翻译结果的稳定性，将 temperature 设置为 0
-        chat = ChatOpenAI(model_name=model_name, temperature=0, verbose=verbose)
+        # chat = ChatOpenAI(model_name=model_name, temperature=0, verbose=verbose)
+        # default endpoint_url for a local deployed ChatGLM api server
+        endpoint_url = "http://127.0.0.1:8000"
 
-        self.chain = LLMChain(llm=chat, prompt=chat_prompt_template, verbose=verbose)
+        llm = ChatGLM(
+            endpoint_url=endpoint_url,
+            max_token=8000,
+            history=[],
+            top_p=0.9,
+            model_kwargs={"sample_model_args": False},
+        )
+
+        self.chain = LLMChain(llm=llm, prompt=prompt, verbose=verbose)
 
     def run(self, text: str, source_language: str, target_language: str) -> (str, bool):
         result = ""
